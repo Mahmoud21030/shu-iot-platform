@@ -123,7 +123,16 @@ export async function updateDeviceStatus(deviceId: string, status: "online" | "o
   if (!db) return;
   
   await db.update(devices)
-    .set({ status, lastSeen: new Date() })
+    .set({ status })
+    .where(eq(devices.deviceId, deviceId));
+}
+
+export async function updateDeviceLastSeen(deviceId: string, lastSeen: Date): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  
+  await db.update(devices)
+    .set({ lastSeen })
     .where(eq(devices.deviceId, deviceId));
 }
 

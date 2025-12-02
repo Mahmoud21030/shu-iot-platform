@@ -75,6 +75,10 @@ export const appRouter = router({
           timestamp: new Date(),
         });
         
+        // Update device lastSeen and set status to online
+        await db.updateDeviceLastSeen(input.deviceId, new Date());
+        await db.updateDeviceStatus(input.deviceId, "online");
+        
         // Check for threshold violations and create alerts
         const device = await db.getDeviceByDeviceId(input.deviceId);
         if (device) {
@@ -140,6 +144,44 @@ export const appRouter = router({
         await db.resolveAlert(input.alertId);
         return { success: true };
       }),
+  }),
+  
+  // System maintenance endpoint to check for offline devices
+  system_maintenance: router({
+    checkOfflineDevices: publicProcedure.mutation(async () => {
+      // Get all devices
+      const devices = await db.getAllDevices();
+      const now = new Date();
+      const oneMinuteAgo = new Date(now.getTime() - 60 * 1000); // 1 minute ago
+      
+      let offlineCount = 0;
+      
+      for (const device of devices) {
+        // If device has never been seen or last seen more than 1 minute ago
+        if (!device.lastSeen || new Date(device.lastSeen) < oneMinuteAgo) {
+          if (device.status !== "offline") {
+            await db.updateDeviceStatus(device.deviceId, "offline");
+            
+            // Create an offline alert
+            await db.insertDeviceAlert({
+              deviceId: device.deviceId,
+              alertType: "offline",
+              message: `Device ${device.name} has gone offline (no data for 1 minute)`,
+              severity: "medium",
+              resolved: 0,
+            });
+            
+            offlineCount++;
+          }
+        }
+      }
+      
+      return { 
+        success: true, 
+        offlineCount,
+        message: `Checked ${devices.length} devices, marked ${offlineCount} as offline`
+      };
+    }),
   }),
 });
 

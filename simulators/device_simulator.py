@@ -22,7 +22,10 @@ class DeviceSimulator:
         self.is_running = False
         
     def register_device(self) -> bool:
-        url = f"{self.base_url}/api/trpc/devices.register?batch=1"
+        """Register the device with the IoT platform"""
+        url = f"{self.base_url}/api/trpc/devices.register"
+        
+        # tRPC expects data in a specific format
         payload = {
             "0": {
                 "json": {
@@ -33,10 +36,9 @@ class DeviceSimulator:
                 }
             }
         }
+        
         try:
-            response = requests.post(url, json=payload, headers={
-                "Content-Type": "application/json"
-            })
+            response = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
             if response.status_code == 200:
                 print(f"✓ Device {self.device_id} registered successfully")
                 return True
@@ -46,10 +48,12 @@ class DeviceSimulator:
         except Exception as e:
             print(f"✗ Error registering device: {e}")
             return False
-
+    
     def send_reading(self, value: str, unit: str = None) -> bool:
         """Send a sensor reading to the IoT platform"""
-        url = f"{self.base_url}/api/trpc/readings.submit?batch=1"
+        url = f"{self.base_url}/api/trpc/readings.submit"
+        
+        # tRPC expects data in a specific format
         payload = {
             "0": {
                 "json": {
@@ -59,10 +63,9 @@ class DeviceSimulator:
                 }
             }
         }
-
         
         try:
-            response = requests.post(url, json=payload)
+            response = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
             if response.status_code == 200:
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 print(f"[{timestamp}] {self.device_name}: {value}{unit if unit else ''}")
@@ -76,7 +79,9 @@ class DeviceSimulator:
     
     def update_status(self, status: str) -> bool:
         """Update device status"""
-        url = f"{self.base_url}/api/trpc/devices.updateStatus?batch=1"
+        url = f"{self.base_url}/api/trpc/devices.updateStatus"
+        
+        # tRPC expects data in a specific format
         payload = {
             "0": {
                 "json": {
@@ -85,10 +90,9 @@ class DeviceSimulator:
                 }
             }
         }
-
         
         try:
-            response = requests.post(url, json=payload)
+            response = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
             return response.status_code == 200
         except Exception as e:
             print(f"✗ Error updating status: {e}")
