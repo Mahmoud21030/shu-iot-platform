@@ -61,6 +61,39 @@ export const appRouter = router({
   }),
   
   readings: router({
+    getHistorical: publicProcedure
+      .input(z.object({
+        deviceId: z.string(),
+        hours: z.number().optional().default(24),
+      }))
+      .query(async ({ input }) => {
+        return await db.getHistoricalReadings(input.deviceId, input.hours);
+      }),
+    
+    getStatistics: publicProcedure
+      .input(z.object({
+        deviceId: z.string(),
+        hours: z.number().optional().default(24),
+      }))
+      .query(async ({ input }) => {
+        return await db.getDeviceStatistics(input.deviceId, input.hours);
+      }),
+    
+    exportCSV: publicProcedure
+      .input(z.object({
+        deviceId: z.string().optional(),
+        hours: z.number().optional().default(24),
+      }))
+      .query(async ({ input }) => {
+        const readings = input.deviceId 
+          ? await db.getHistoricalReadings(input.deviceId, input.hours)
+          : await db.getAllReadings(input.hours);
+        
+        // Convert to CSV format
+        const csv = db.convertReadingsToCSV(readings);
+        return { csv, filename: `sensor_readings_${new Date().toISOString().split('T')[0]}.csv` };
+      }),
+    
     submit: publicProcedure
       .input(z.object({
         deviceId: z.string(),
@@ -138,7 +171,17 @@ export const appRouter = router({
       return await db.getUnresolvedAlerts();
     }),
     
-    resolve: protectedProcedure
+    getAll: publicProcedure.query(async () => {
+      return await db.getAllAlerts();
+    }),
+    
+    exportCSV: publicProcedure.query(async () => {
+      const alerts = await db.getAllAlerts();
+      const csv = db.convertAlertsToCSV(alerts);
+      return { csv, filename: `device_alerts_${new Date().toISOString().split('T')[0]}.csv` };
+    }),
+    
+    resolve: publicProcedure
       .input(z.object({ alertId: z.number() }))
       .mutation(async ({ input }) => {
         await db.resolveAlert(input.alertId);

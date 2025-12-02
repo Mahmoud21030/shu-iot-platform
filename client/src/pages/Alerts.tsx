@@ -12,18 +12,32 @@ import { Badge } from "@/components/ui/badge";
 import { APP_LOGO, APP_TITLE } from "@/const";
 import { useTheme } from "@/contexts/ThemeContext";
 import { trpc } from "@/lib/trpc";
-import { AlertTriangle, CheckCircle, Moon, Sun } from "lucide-react";
+import { AlertTriangle, CheckCircle, Moon, Sun, Download } from "lucide-react";
 import { Link } from "wouter";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
 
 export default function Alerts() {
   const { theme, toggleTheme } = useTheme();
-  const { isAuthenticated } = useAuth();
   const utils = trpc.useUtils();
   const { data: alerts, isLoading } = trpc.alerts.list.useQuery(undefined, {
     refetchInterval: 5000,
   });
+
+  const exportCSVQuery = trpc.alerts.exportCSV.useQuery(undefined, { enabled: false });
+
+  const handleExportCSV = async () => {
+    const result = await exportCSVQuery.refetch();
+    if (result.data) {
+      const blob = new Blob([result.data.csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = result.data.filename;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    }
+  };
 
   const resolveAlertMutation = trpc.alerts.resolve.useMutation({
     onSuccess: () => {
@@ -36,10 +50,6 @@ export default function Alerts() {
   });
 
   const handleResolveAlert = (alertId: number) => {
-    if (!isAuthenticated) {
-      toast.error("You must be logged in to resolve alerts");
-      return;
-    }
     resolveAlertMutation.mutate({ alertId });
   };
 
@@ -96,9 +106,15 @@ export default function Alerts() {
 
       {/* Main Content */}
       <main className="container py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-foreground">Alerts</h2>
-          <p className="text-muted-foreground">Monitor and manage system alerts</p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold text-foreground">Alerts</h2>
+            <p className="text-muted-foreground">Monitor and manage system alerts</p>
+          </div>
+          <Button variant="outline" onClick={handleExportCSV}>
+            <Download className="mr-2 h-4 w-4" />
+            Export CSV
+          </Button>
         </div>
 
         {/* Stats */}
