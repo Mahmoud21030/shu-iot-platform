@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { APP_LOGO, APP_TITLE } from "@/const";
 import { useTheme } from "@/contexts/ThemeContext";
 import { trpc } from "@/lib/trpc";
-import { Activity, AlertCircle, CheckCircle, Moon, Sun, XCircle, Download, ExternalLink } from "lucide-react";
+import { Activity, AlertCircle, CheckCircle, Moon, Sun, XCircle } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
 
@@ -21,24 +21,6 @@ export default function Devices() {
   const { data: devices, isLoading } = trpc.devices.list.useQuery(undefined, {
     refetchInterval: 5000,
   });
-
-  const exportCSVQuery = trpc.readings.exportCSV.useQuery(
-    { hours: 24 },
-    { enabled: false }
-  );
-
-  const handleExportCSV = async () => {
-    const result = await exportCSVQuery.refetch();
-    if (result.data) {
-      const blob = new Blob([result.data.csv], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = result.data.filename;
-      a.click();
-      window.URL.revokeObjectURL(url);
-    }
-  };
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const { data: readings } = trpc.readings.getRecent.useQuery(
     { deviceId: selectedDeviceId!, limit: 10 },
@@ -119,15 +101,9 @@ export default function Devices() {
 
       {/* Main Content */}
       <main className="container py-8">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold text-foreground">Devices</h2>
-            <p className="text-muted-foreground">Manage and monitor all IoT devices</p>
-          </div>
-          <Button variant="outline" onClick={handleExportCSV}>
-            <Download className="mr-2 h-4 w-4" />
-            Export All CSV
-          </Button>
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-foreground">Devices</h2>
+          <p className="text-muted-foreground">Manage and monitor all IoT devices</p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
@@ -176,11 +152,9 @@ export default function Devices() {
                               {device.lastSeen ? new Date(device.lastSeen).toLocaleString() : "Never"}
                             </TableCell>
                             <TableCell>
-                              <Link href={`/devices/${device.deviceId}`}>
-                                <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
-                                  <ExternalLink className="h-4 w-4" />
-                                </Button>
-                              </Link>
+                              <Button variant="ghost" size="sm" onClick={() => setSelectedDeviceId(device.deviceId)}>
+                                View
+                              </Button>
                             </TableCell>
                           </TableRow>
                         ))}
