@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { eq, and, gte, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { Device, DeviceAlert, InsertDevice, InsertDeviceAlert, InsertSensorReading, InsertUser, SensorReading, deviceAlerts, devices, sensorReadings, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -178,4 +178,104 @@ export async function resolveAlert(alertId: number): Promise<void> {
   await db.update(deviceAlerts)
     .set({ resolved: 1, resolvedAt: new Date() })
     .where(eq(deviceAlerts.id, alertId));
+}
+
+// Historical data and statistics functions
+export async function getHistoricalReadings(deviceId: string, hours: number = 24): Promise<SensorReading[]> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  const hoursAgo = new Date(Date.now() - hours * 60 * 60 * 1000);
+  
+  return await db.select()
+    .from(sensorReadings)
+    .where(
+      and(
+        eq(sensorReadings.deviceId, deviceId),
+        gte(sensorReadings.timestamp, hoursAgo)
+      )
+    )
+    .orderBy(sensorReadings.timestamp);
+}
+
+export async function getAllReadings(hours: number = 24): Promise<SensorReading[]> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  const hoursAgo = new Date(Date.now() - hours * 60 * 60 * 1000);
+  
+  return await db.select()
+    .from(sensorReadings)
+    .where(gte(sensorReadings.timestamp, hoursAgo))
+    .orderBy(sensorReadings.timestamp);
+}
+
+export async function getReadingStatistics(deviceId: string, hours: number = 24) {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const readings = await getHistoricalReadings(deviceId, hours);
+  
+  if (readings.length === 0) {
+    return {
+      count: 0,
+      average: null,
+      min: null,
+      max: null,
+      stdDev: null,
+      trend: "stable",
+    };
+  }
+  
+  const values = readings.map(r => parseFloat(r.value)).filter(v => !isNaN(v));
+  
+  if (values.length === 0) {
+    return {
+      count: readings.length,
+      average: null,
+      min: null,
+      max: null,
+      stdDev: null,
+      trend: "stable",
+    };
+  }
+  
+  const sum = values.reduce((a, b) => a + b, 0);
+  const average = sum / values.length;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  
+  // Calculate standard deviation
+  const squareDiffs = values.map(value => Math.pow(value - average, 2));
+  const avgSquareDiff = squareDiffs.reduce((a, b) => a + b, 0) / values.length;
+  const stdDev = Math.sqrt(avgSquareDiff);
+  
+  // Calculate trend (compare first half to second half)
+  let trend = "stable";
+  if (values.length >= 4) {
+    const midpoint = Math.floor(values.length / 2);
+    const firstHalf = values.slice(0, midpoint);
+    const secondHalf = values.slice(midpoint);
+    
+    const firstAvg = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
+    const secondAvg = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+    
+    const diff = secondAvg - firstAvg;
+    const threshold = stdDev * 0.5; // Use half std dev as threshold
+    
+    if (diff > threshold) {
+      trend = "increasing";
+    } else if (diff < -threshold) {
+      trend = "decreasing";
+    }
+  }
+  
+  return {
+    count: readings.length,
+    average: average.toFixed(2),
+    min: min.toFixed(2),
+    max: max.toFixed(2),
+    stdDev: stdDev.toFixed(2),
+    trend,
+  };
 }

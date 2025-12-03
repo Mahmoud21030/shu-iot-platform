@@ -1,11 +1,28 @@
-import { useAuth } from "@/_core/hooks/useAuth";
-import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { APP_LOGO, APP_TITLE } from "@/const";
+import { useTheme } from "@/contexts/ThemeContext";
 import { trpc } from "@/lib/trpc";
-import { ArrowLeft, Download, TrendingDown, TrendingUp } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useRoute } from "wouter";
+import { ArrowLeft, Moon, Sun, Download, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Link, useParams } from "wouter";
+import { useState } from "react";
+import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -16,8 +33,7 @@ import {
   Tooltip,
   Legend,
   Filler,
-} from 'chart.js';
-import { Line } from 'react-chartjs-2';
+} from "chart.js";
 
 // Register Chart.js components
 ChartJS.register(
@@ -32,37 +48,41 @@ ChartJS.register(
 );
 
 export default function DeviceDetail() {
-  const { user, loading: authLoading } = useAuth();
-  const [, params] = useRoute("/devices/:deviceId");
-  const deviceId = params?.deviceId || "";
-  const [timeRange, setTimeRange] = useState(24);
+  const { theme, toggleTheme } = useTheme();
+  const params = useParams();
+  const deviceId = params.deviceId as string;
+  const [timeRange, setTimeRange] = useState<number>(24);
 
-  const { data: device, isLoading: deviceLoading } = trpc.devices.get.useQuery(
-    { deviceId },
-    { enabled: !!deviceId }
-  );
+  const { data: device } = trpc.devices.list.useQuery(undefined, {
+    select: (devices) => devices.find((d) => d.deviceId === deviceId),
+  });
 
-  const { data: historical, isLoading: historicalLoading } = trpc.readings.getHistorical.useQuery(
+  const { data: historicalData } = trpc.readings.getHistorical.useQuery(
     { deviceId, hours: timeRange },
     { enabled: !!deviceId, refetchInterval: 30000 }
   );
 
-  const { data: statistics, isLoading: statsLoading } = trpc.readings.getStatistics.useQuery(
+  const { data: statistics } = trpc.readings.getStatistics.useQuery(
     { deviceId, hours: timeRange },
     { enabled: !!deviceId, refetchInterval: 30000 }
   );
 
-  const exportCSVMutation = trpc.readings.exportCSV.useQuery(
+  const { data: recentReadings } = trpc.readings.getRecent.useQuery(
+    { deviceId, limit: 10 },
+    { enabled: !!deviceId, refetchInterval: 5000 }
+  );
+
+  const exportCSVQuery = trpc.readings.exportCSV.useQuery(
     { deviceId, hours: timeRange },
     { enabled: false }
   );
 
   const handleExportCSV = async () => {
-    const result = await exportCSVMutation.refetch();
+    const result = await exportCSVQuery.refetch();
     if (result.data) {
-      const blob = new Blob([result.data.csv], { type: 'text/csv' });
+      const blob = new Blob([result.data.csv], { type: "text/csv" });
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
       a.download = result.data.filename;
       a.click();
@@ -71,22 +91,26 @@ export default function DeviceDetail() {
   };
 
   // Prepare chart data
-  const chartData = {
-    labels: historical?.map(r => {
-      const date = new Date(r.timestamp);
-      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    }) || [],
-    datasets: [
-      {
-        label: device?.name || 'Device',
-        data: historical?.map(r => parseFloat(r.value)) || [],
-        borderColor: 'rgb(59, 130, 246)',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-        fill: true,
-        tension: 0.4,
-      },
-    ],
-  };
+  const chartData = historicalData
+    ? {
+        labels: historicalData.map((reading) =>
+          new Date(reading.timestamp).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        ),
+        datasets: [
+          {
+            label: device?.type || "Sensor Reading",
+            data: historicalData.map((reading) => parseFloat(reading.value)),
+            borderColor: "rgb(59, 130, 246)",
+            backgroundColor: "rgba(59, 130, 246, 0.1)",
+            fill: true,
+            tension: 0.4,
+          },
+        ],
+      }
+    : null;
 
   const chartOptions = {
     responsive: true,
@@ -95,34 +119,27 @@ export default function DeviceDetail() {
       legend: {
         display: false,
       },
-      title: {
-        display: false,
-      },
       tooltip: {
-        callbacks: {
-          label: function(context: any) {
-            const unit = historical?.[context.dataIndex]?.unit || '';
-            return `${context.parsed.y}${unit}`;
-          }
-        }
-      }
+        mode: "index" as const,
+        intersect: false,
+      },
     },
     scales: {
       y: {
         beginAtZero: false,
         grid: {
-          color: 'rgba(255, 255, 255, 0.1)',
+          color: theme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)",
         },
         ticks: {
-          color: 'rgba(255, 255, 255, 0.7)',
+          color: theme === "dark" ? "rgba(255, 255, 255, 0.7)" : "rgba(0, 0, 0, 0.7)",
         },
       },
       x: {
         grid: {
-          color: 'rgba(255, 255, 255, 0.1)',
+          color: theme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)",
         },
         ticks: {
-          color: 'rgba(255, 255, 255, 0.7)',
+          color: theme === "dark" ? "rgba(255, 255, 255, 0.7)" : "rgba(0, 0, 0, 0.7)",
           maxRotation: 45,
           minRotation: 45,
         },
@@ -130,227 +147,184 @@ export default function DeviceDetail() {
     },
   };
 
-  if (authLoading || deviceLoading) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-muted-foreground">Loading device details...</div>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  if (!device) {
-    return (
-      <DashboardLayout>
-        <div className="flex flex-col items-center justify-center h-64 gap-4">
-          <div className="text-muted-foreground">Device not found</div>
-          <Button variant="outline" onClick={() => window.history.back()}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Go Back
-          </Button>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  const getTrendIcon = () => {
-    if (!statistics) return null;
-    if (statistics.trend === 'increasing') return <TrendingUp className="h-4 w-4 text-green-500" />;
-    if (statistics.trend === 'decreasing') return <TrendingDown className="h-4 w-4 text-red-500" />;
-    return <div className="h-4 w-4 text-yellow-500">→</div>;
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'online': return 'text-green-500';
-      case 'offline': return 'text-red-500';
-      case 'error': return 'text-yellow-500';
-      default: return 'text-gray-500';
-    }
+  const getTrendIcon = (trend: string) => {
+    if (trend === "increasing") return <TrendingUp className="h-4 w-4 text-green-500" />;
+    if (trend === "decreasing") return <TrendingDown className="h-4 w-4 text-red-500" />;
+    return <Minus className="h-4 w-4 text-gray-500" />;
   };
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => window.history.back()}>
-              <ArrowLeft className="h-5 w-5" />
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
+        <div className="container flex h-16 items-center justify-between">
+          <Link href="/">
+            <div className="flex items-center gap-3 cursor-pointer">
+              <img src={APP_LOGO} alt={APP_TITLE} className="h-8 w-8" />
+              <h1 className="text-xl font-bold text-foreground">{APP_TITLE}</h1>
+            </div>
+          </Link>
+          <nav className="flex items-center gap-6">
+            <Link href="/dashboard" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              Dashboard
+            </Link>
+            <Link href="/devices" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
+              Devices
+            </Link>
+            <Link href="/alerts" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              Alerts
+            </Link>
+            <Link href="/config" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              Configuration
+            </Link>
+            <Button variant="ghost" size="icon" onClick={toggleTheme}>
+              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </Button>
+          </nav>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="container py-8">
+        <div className="mb-8 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link href="/devices">
+              <Button variant="ghost" size="icon">
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            </Link>
             <div>
-              <h1 className="text-3xl font-bold">{device.name}</h1>
+              <h2 className="text-3xl font-bold text-foreground">{device?.name || deviceId}</h2>
               <p className="text-muted-foreground">
-                {device.location} • {device.type}
+                {device?.type} sensor at {device?.location}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className={`flex items-center gap-2 ${getStatusColor(device.status)}`}>
-              <div className="h-2 w-2 rounded-full bg-current animate-pulse" />
-              <span className="font-medium capitalize">{device.status}</span>
-            </div>
-          </div>
+          <Badge variant={device?.status === "online" ? "default" : "secondary"} className="capitalize">
+            {device?.status}
+          </Badge>
         </div>
 
-        {/* Time Range Selector */}
-        <div className="flex gap-2">
-          {[1, 6, 12, 24, 48].map(hours => (
-            <Button
-              key={hours}
-              variant={timeRange === hours ? "default" : "outline"}
-              size="sm"
-              onClick={() => setTimeRange(hours)}
-            >
-              {hours}h
-            </Button>
-          ))}
-        </div>
-
-        {/* Statistics Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-          <Card>
+        <div className="grid gap-6 lg:grid-cols-3 mb-6">
+          {/* Statistics Cards */}
+          <Card className="bg-card text-card-foreground">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Data Points
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Data Points</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{statistics?.count || 0}</div>
+              <p className="text-xs text-muted-foreground">in last {timeRange}h</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-card text-card-foreground">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Average
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Average</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {statistics?.average || 0}
-                <span className="text-sm text-muted-foreground ml-1">
-                  {historical?.[0]?.unit || ''}
-                </span>
+                {statistics?.average ? parseFloat(statistics.average).toFixed(2) : "N/A"}
+                {recentReadings?.[0]?.unit}
               </div>
+              <p className="text-xs text-muted-foreground">
+                Min: {statistics?.min || "N/A"} | Max: {statistics?.max || "N/A"}
+              </p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-card text-card-foreground">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Min / Max
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Trend & Std Dev</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {statistics?.min || 0} / {statistics?.max || 0}
+              <div className="flex items-center gap-2 text-2xl font-bold">
+                {getTrendIcon(statistics?.trend || "stable")}
+                <span className="capitalize">{statistics?.trend || "stable"}</span>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Std Deviation
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                ±{statistics?.stdDev || 0}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Trend
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                {getTrendIcon()}
-                <span className="text-lg font-medium capitalize">
-                  {statistics?.trend || 'N/A'}
-                </span>
-              </div>
+              <p className="text-xs text-muted-foreground">
+                σ = ±{statistics?.stdDev ? parseFloat(statistics.stdDev).toFixed(2) : "N/A"}
+              </p>
             </CardContent>
           </Card>
         </div>
 
         {/* Historical Chart */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Historical Data</CardTitle>
-              <CardDescription>
-                Last {timeRange} hours of sensor readings
-              </CardDescription>
+        <Card className="bg-card text-card-foreground mb-6">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Historical Data</CardTitle>
+                <CardDescription>Sensor readings over time</CardDescription>
+              </div>
+              <div className="flex items-center gap-4">
+                <Select value={timeRange.toString()} onValueChange={(value) => setTimeRange(parseInt(value))}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">Last 1 hour</SelectItem>
+                    <SelectItem value="6">Last 6 hours</SelectItem>
+                    <SelectItem value="12">Last 12 hours</SelectItem>
+                    <SelectItem value="24">Last 24 hours</SelectItem>
+                    <SelectItem value="48">Last 48 hours</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="sm" onClick={handleExportCSV}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export CSV
+                </Button>
+              </div>
             </div>
-            <Button variant="outline" size="sm" onClick={handleExportCSV}>
-              <Download className="mr-2 h-4 w-4" />
-              Export CSV
-            </Button>
           </CardHeader>
           <CardContent>
-            {historicalLoading ? (
-              <div className="flex items-center justify-center h-[400px]">
-                <div className="text-muted-foreground">Loading chart...</div>
-              </div>
-            ) : historical && historical.length > 0 ? (
-              <div className="h-[400px]">
+            {chartData && chartData.labels.length > 0 ? (
+              <div style={{ height: "400px" }}>
                 <Line data={chartData} options={chartOptions} />
               </div>
             ) : (
               <div className="flex items-center justify-center h-[400px]">
-                <div className="text-muted-foreground">No data available for this time range</div>
+                <p className="text-muted-foreground">No data available for the selected time range</p>
               </div>
             )}
           </CardContent>
         </Card>
 
         {/* Recent Readings Table */}
-        <Card>
+        <Card className="bg-card text-card-foreground">
           <CardHeader>
             <CardTitle>Recent Readings</CardTitle>
             <CardDescription>Latest 10 sensor readings</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-2 px-4 text-sm font-medium text-muted-foreground">
-                      Timestamp
-                    </th>
-                    <th className="text-left py-2 px-4 text-sm font-medium text-muted-foreground">
-                      Value
-                    </th>
-                    <th className="text-left py-2 px-4 text-sm font-medium text-muted-foreground">
-                      Unit
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {historical?.slice(-10).reverse().map((reading, index) => (
-                    <tr key={index} className="border-b border-border/50">
-                      <td className="py-2 px-4 text-sm">
-                        {new Date(reading.timestamp).toLocaleString()}
-                      </td>
-                      <td className="py-2 px-4 text-sm font-medium">{reading.value}</td>
-                      <td className="py-2 px-4 text-sm text-muted-foreground">
-                        {reading.unit || 'N/A'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {recentReadings && recentReadings.length > 0 ? (
+              <div className="rounded-md border border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Timestamp</TableHead>
+                      <TableHead>Value</TableHead>
+                      <TableHead>Unit</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recentReadings.map((reading) => (
+                      <TableRow key={reading.id}>
+                        <TableCell className="text-sm">
+                          {new Date(reading.timestamp).toLocaleString()}
+                        </TableCell>
+                        <TableCell className="font-medium">{reading.value}</TableCell>
+                        <TableCell className="text-muted-foreground">{reading.unit}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No recent readings available</p>
+            )}
           </CardContent>
         </Card>
-      </div>
-    </DashboardLayout>
+      </main>
+    </div>
   );
 }

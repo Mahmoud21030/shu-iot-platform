@@ -131,6 +131,55 @@ export const appRouter = router({
       .query(async ({ input }) => {
         return await db.getRecentReadings(input.deviceId, input.limit);
       }),
+    
+    getHistorical: publicProcedure
+      .input(z.object({
+        deviceId: z.string(),
+        hours: z.number().optional(),
+      }))
+      .query(async ({ input }) => {
+        return await db.getHistoricalReadings(input.deviceId, input.hours || 24);
+      }),
+    
+    getStatistics: publicProcedure
+      .input(z.object({
+        deviceId: z.string(),
+        hours: z.number().optional(),
+      }))
+      .query(async ({ input }) => {
+        return await db.getReadingStatistics(input.deviceId, input.hours || 24);
+      }),
+    
+    exportCSV: publicProcedure
+      .input(z.object({
+        deviceId: z.string().optional(),
+        hours: z.number().optional(),
+      }))
+      .query(async ({ input }) => {
+        const readings = input.deviceId
+          ? await db.getHistoricalReadings(input.deviceId, input.hours || 24)
+          : await db.getAllReadings(input.hours || 24);
+        
+        // Generate CSV
+        const headers = ['Device ID', 'Timestamp', 'Value', 'Unit'];
+        const rows = readings.map(r => [
+          r.deviceId,
+          new Date(r.timestamp).toISOString(),
+          r.value,
+          r.unit || ''
+        ]);
+        
+        const csv = [
+          headers.join(','),
+          ...rows.map(row => row.join(','))
+        ].join('\n');
+        
+        const filename = input.deviceId
+          ? `readings_${input.deviceId}_${new Date().toISOString().split('T')[0]}.csv`
+          : `readings_all_${new Date().toISOString().split('T')[0]}.csv`;
+        
+        return { csv, filename };
+      }),
   }),
   
   alerts: router({
@@ -138,11 +187,36 @@ export const appRouter = router({
       return await db.getUnresolvedAlerts();
     }),
     
-    resolve: protectedProcedure
+    resolve: publicProcedure
       .input(z.object({ alertId: z.number() }))
       .mutation(async ({ input }) => {
         await db.resolveAlert(input.alertId);
         return { success: true };
+      }),
+    
+    exportCSV: publicProcedure
+      .query(async () => {
+        const alerts = await db.getUnresolvedAlerts();
+        
+        // Generate CSV
+        const headers = ['Alert ID', 'Device ID', 'Type', 'Message', 'Severity', 'Created At'];
+        const rows = alerts.map(a => [
+          a.id.toString(),
+          a.deviceId,
+          a.alertType,
+          a.message,
+          a.severity,
+          new Date(a.createdAt).toISOString()
+        ]);
+        
+        const csv = [
+          headers.join(','),
+          ...rows.map(row => row.join(','))
+        ].join('\n');
+        
+        const filename = `alerts_${new Date().toISOString().split('T')[0]}.csv`;
+        
+        return { csv, filename };
       }),
   }),
   

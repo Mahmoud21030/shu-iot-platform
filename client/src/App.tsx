@@ -8,6 +8,9 @@ import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 import Devices from "./pages/Devices";
 import Alerts from "./pages/Alerts";
+import DeviceDetail from "./pages/DeviceDetail";
+import DeviceConfig from "./pages/DeviceConfig";
+import Analytics from "./pages/Analytics";
 
 function Router() {
   return (
@@ -15,7 +18,10 @@ function Router() {
       <Route path={"/"} component={Home} />
       <Route path={"/dashboard"} component={Dashboard} />
       <Route path={"/devices"} component={Devices} />
+      <Route path={"/devices/:deviceId"} component={DeviceDetail} />
       <Route path={"/alerts"} component={Alerts} />
+      <Route path={"/analytics"} component={Analytics} />
+      <Route path={"/config"} component={DeviceConfig} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

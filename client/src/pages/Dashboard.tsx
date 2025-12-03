@@ -43,18 +43,20 @@ export default function Dashboard() {
             </div>
           </Link>
           <nav className="flex items-center gap-6">
-            <Link href="/dashboard">
-              <a className="text-sm font-medium text-foreground hover:text-primary transition-colors">Dashboard</a>
+            <Link href="/dashboard" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
+              Dashboard
             </Link>
-            <Link href="/devices">
-              <a className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                Devices
-              </a>
+            <Link href="/devices" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              Devices
             </Link>
-            <Link href="/alerts">
-              <a className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                Alerts
-              </a>
+            <Link href="/alerts" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              Alerts
+            </Link>
+            <Link href="/analytics" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              Analytics
+            </Link>
+            <Link href="/config" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              Configuration
             </Link>
             <Button variant="ghost" size="icon" onClick={toggleTheme}>
               {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}

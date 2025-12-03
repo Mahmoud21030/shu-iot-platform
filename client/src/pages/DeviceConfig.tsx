@@ -12,9 +12,9 @@ import {
 import { APP_LOGO, APP_TITLE } from "@/const";
 import { useTheme } from "@/contexts/ThemeContext";
 import { trpc } from "@/lib/trpc";
-import { Moon, Sun, Plus } from "lucide-react";
-import { useState } from "react";
+import { Moon, Sun } from "lucide-react";
 import { Link } from "wouter";
+import { useState } from "react";
 import { toast } from "sonner";
 
 export default function DeviceConfig() {
@@ -26,7 +26,7 @@ export default function DeviceConfig() {
   const [type, setType] = useState<"temperature" | "humidity" | "occupancy" | "lighting">("temperature");
   const [location, setLocation] = useState("");
 
-  const registerDeviceMutation = trpc.devices.register.useMutation({
+  const registerMutation = trpc.devices.register.useMutation({
     onSuccess: () => {
       toast.success("Device registered successfully");
       utils.devices.list.invalidate();
@@ -49,7 +49,7 @@ export default function DeviceConfig() {
       return;
     }
 
-    registerDeviceMutation.mutate({
+    registerMutation.mutate({
       deviceId,
       name,
       type,
@@ -69,25 +69,17 @@ export default function DeviceConfig() {
             </div>
           </Link>
           <nav className="flex items-center gap-6">
-            <Link href="/dashboard">
-              <a className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                Dashboard
-              </a>
+            <Link href="/dashboard" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              Dashboard
             </Link>
-            <Link href="/devices">
-              <a className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                Devices
-              </a>
+            <Link href="/devices" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              Devices
             </Link>
-            <Link href="/alerts">
-              <a className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                Alerts
-              </a>
+            <Link href="/alerts" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              Alerts
             </Link>
-            <Link href="/config">
-              <a className="text-sm font-medium text-foreground hover:text-primary transition-colors">
-                Configuration
-              </a>
+            <Link href="/config" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
+              Configuration
             </Link>
             <Button variant="ghost" size="icon" onClick={toggleTheme}>
               {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
@@ -100,20 +92,15 @@ export default function DeviceConfig() {
       <main className="container py-8">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-foreground">Device Configuration</h2>
-          <p className="text-muted-foreground">Register new devices and configure settings</p>
+          <p className="text-muted-foreground">Register new IoT devices to the platform</p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          {/* Register New Device */}
+          {/* Registration Form */}
           <Card className="bg-card text-card-foreground">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Plus className="h-5 w-5" />
-                Register New Device
-              </CardTitle>
-              <CardDescription>
-                Add a new IoT device to the platform
-              </CardDescription>
+              <CardTitle>Register New Device</CardTitle>
+              <CardDescription>Add a new IoT device to start monitoring</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -146,7 +133,7 @@ export default function DeviceConfig() {
                   <Label htmlFor="type">Device Type</Label>
                   <Select value={type} onValueChange={(value: any) => setType(value)}>
                     <SelectTrigger id="type">
-                      <SelectValue placeholder="Select device type" />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="temperature">Temperature Sensor</SelectItem>
@@ -168,68 +155,56 @@ export default function DeviceConfig() {
                   />
                 </div>
 
-                <Button 
-                  type="submit" 
-                  className="w-full"
-                  disabled={registerDeviceMutation.isPending}
-                >
-                  {registerDeviceMutation.isPending ? "Registering..." : "Register Device"}
+                <Button type="submit" className="w-full" disabled={registerMutation.isPending}>
+                  {registerMutation.isPending ? "Registering..." : "Register Device"}
                 </Button>
               </form>
             </CardContent>
           </Card>
 
-          {/* Configuration Guide */}
+          {/* Information Card */}
           <Card className="bg-card text-card-foreground">
             <CardHeader>
-              <CardTitle>Configuration Guide</CardTitle>
-              <CardDescription>
-                How to set up and configure devices
-              </CardDescription>
+              <CardTitle>Device Types</CardTitle>
+              <CardDescription>Supported IoT device types and their uses</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <h4 className="font-medium mb-2">1. Register the Device</h4>
+                <h4 className="font-medium mb-1">Temperature Sensor</h4>
                 <p className="text-sm text-muted-foreground">
-                  Fill in the device details in the form. The Device ID must be unique and will be used by the simulator.
+                  Monitors ambient temperature in °C. Alerts when temperature exceeds 30°C or drops below 15°C.
                 </p>
               </div>
 
               <div>
-                <h4 className="font-medium mb-2">2. Start the Simulator</h4>
-                <p className="text-sm text-muted-foreground mb-2">
-                  Run the Python simulator with the registered device ID:
+                <h4 className="font-medium mb-1">Humidity Sensor</h4>
+                <p className="text-sm text-muted-foreground">
+                  Measures relative humidity in %. Alerts when humidity exceeds 70% or drops below 30%.
                 </p>
-                <code className="block bg-muted p-2 rounded text-xs">
-                  python device_simulator.py --url http://localhost:3000 --device-id temp-001 --name "Temperature Sensor 1" --type temperature --location "Main Hall" --interval 10
+              </div>
+
+              <div>
+                <h4 className="font-medium mb-1">Occupancy Sensor</h4>
+                <p className="text-sm text-muted-foreground">
+                  Detects presence and counts people in a space. Useful for space utilization tracking.
+                </p>
+              </div>
+
+              <div>
+                <h4 className="font-medium mb-1">Smart Lighting</h4>
+                <p className="text-sm text-muted-foreground">
+                  Controls and monitors lighting systems. Reports power consumption and status.
+                </p>
+              </div>
+
+              <div className="pt-4 border-t border-border">
+                <h4 className="font-medium mb-2">Using the Simulator</h4>
+                <p className="text-sm text-muted-foreground mb-2">
+                  After registering a device, start the simulator with:
+                </p>
+                <code className="text-xs bg-muted p-2 rounded block">
+                  python device_simulator.py --url http://localhost:3000 --device-id {deviceId || "your-device-id"} --name "{name || "Your Device"}" --type {type} --location "{location || "Your Location"}" --interval 10
                 </code>
-              </div>
-
-              <div>
-                <h4 className="font-medium mb-2">3. Monitor the Device</h4>
-                <p className="text-sm text-muted-foreground">
-                  Once the simulator starts, the device will appear in the dashboard with real-time data updates.
-                </p>
-              </div>
-
-              <div className="border-t border-border pt-4 mt-4">
-                <h4 className="font-medium mb-2">Alert Thresholds</h4>
-                <p className="text-sm text-muted-foreground mb-2">
-                  Default thresholds for automatic alerts:
-                </p>
-                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                  <li>Temperature: &lt; 15°C or &gt; 30°C</li>
-                  <li>Humidity: &lt; 30% or &gt; 70%</li>
-                  <li>Occupancy: &gt; 80%</li>
-                  <li>Lighting: &lt; 20% or &gt; 90%</li>
-                </ul>
-              </div>
-
-              <div className="border-t border-border pt-4 mt-4">
-                <h4 className="font-medium mb-2">Offline Detection</h4>
-                <p className="text-sm text-muted-foreground">
-                  Devices are automatically marked as offline if they haven't sent data for more than 1 minute.
-                </p>
               </div>
             </CardContent>
           </Card>
