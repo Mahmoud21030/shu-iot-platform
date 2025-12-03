@@ -23,7 +23,7 @@ class DeviceSimulator:
         
     def register_device(self) -> bool:
         """Register the device with the IoT platform"""
-        url = f"{self.base_url}/api/trpc/devices.register"
+        url = f"{self.base_url}/api/trpc/devices.register?batch=1"
         
         # tRPC expects data in a specific format
         payload = {

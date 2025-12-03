@@ -36,10 +36,7 @@ export default function Alerts() {
   });
 
   const handleResolveAlert = (alertId: number) => {
-    if (!isAuthenticated) {
-      toast.error("You must be logged in to resolve alerts");
-      return;
-    }
+
     resolveAlertMutation.mutate({ alertId });
   };
 
